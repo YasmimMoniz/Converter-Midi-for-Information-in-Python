@@ -1,0 +1,58 @@
+import mido
+import csv
+
+# Caminho absoluto do arquivo MIDI
+midi_file_path = r'C:\caminho\substitua'
+
+# Lista para armazenar as informações das notas
+note_info = []
+
+# BPM padrão (ajuste conforme necessário)
+default_bpm = 120
+
+# Tempo absoluto em segundos
+absolute_time_seconds = 0
+
+# Dicionário para rastrear o tempo de início de cada nota ativa
+active_notes = {}
+
+# Função para converter ticks para milissegundos
+def ticks_to_milliseconds(ticks, ticks_per_beat, bpm):
+    seconds_per_tick = 60.0 / (bpm * ticks_per_beat)
+    return ticks * 1000 * seconds_per_tick
+
+# Iterar sobre as mensagens MIDI
+try:
+    midi_file = mido.MidiFile(midi_file_path)
+
+    for msg in midi_file:
+        # Atualizar o tempo absoluto
+        absolute_time_seconds += ticks_to_milliseconds(msg.time, midi_file.ticks_per_beat, default_bpm)
+
+        if msg.type == 'note_on' and msg.velocity != 0:
+            note = msg.note
+            start_time = absolute_time_seconds
+            active_notes[note] = {'start_time': start_time}
+
+        elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
+            note = msg.note
+            end_time = absolute_time_seconds
+            note_info.append({'note': note, 'start_time': active_notes[note]['start_time'], 'end_time': end_time})
+            del active_notes[note]
+
+except OSError as e:
+    print(f"Erro ao abrir o arquivo MIDI: {e}")
+    exit()
+
+# Caminho absoluto do arquivo CSV
+csv_file_path = r'C:\caminho\substitua.csv'
+
+# Escrever as informações em um arquivo CSV com precisão de 2 casas decimais
+with open(csv_file_path, 'w', newline='') as csvfile:
+    csv_writer = csv.writer(csvfile)
+    csv_writer.writerow(['Nota', 'Tempo de Início (milissegundos)', 'Tempo de Fim (milissegundos)'])
+
+    for info in note_info:
+        csv_writer.writerow([info['note'], round(info['start_time'], 2), round(info['end_time'], 2)])
+
+print(f"As informações das notas foram salvas em: {csv_file_path}")
